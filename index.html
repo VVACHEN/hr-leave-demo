@@ -1,0 +1,1027 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Leave Management System — Demo</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Poppins', sans-serif; background: #f5f5f5; overflow-x: hidden; }
+
+    /* ===== DEMO BAR ===== */
+    .demo-bar {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 9000;
+      background: #111827; border-bottom: 3px solid #FF844F;
+      padding: 10px 20px; display: flex; align-items: center; gap: 14px;
+    }
+    .demo-logo { color: #FF844F; font-size: 13px; font-weight: 700; white-space: nowrap; }
+    .demo-narration {
+      flex: 1; font-size: 13px; color: #d1d5db;
+      transition: opacity 0.3s; min-height: 20px;
+    }
+    .demo-narration strong { color: #fff; }
+    .progress-wrap { width: 90px; height: 4px; background: #374151; border-radius: 2px; overflow: hidden; flex-shrink: 0; }
+    .progress-fill { height: 100%; background: #FF844F; width: 0%; border-radius: 2px; }
+    .demo-ctrl {
+      padding: 7px 14px; border-radius: 6px;
+      font-family: 'Poppins', sans-serif; font-size: 12px; font-weight: 600;
+      cursor: pointer; border: none; transition: all 0.2s; white-space: nowrap;
+    }
+    .ctrl-primary { background: #FF844F; color: white; }
+    .ctrl-primary:hover { background: #e6753f; }
+    .ctrl-ghost { background: transparent; color: #9ca3af; border: 1px solid #374151; }
+    .ctrl-ghost:hover { color: #d1d5db; border-color: #6b7280; }
+
+    .page-body { padding-top: 54px; }
+
+    /* ===== OVERLAYS ===== */
+    .loading-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.5); z-index: 8000;
+      justify-content: center; align-items: center;
+    }
+    .loading-overlay.show { display: flex; }
+    .loading-box { background: white; padding: 28px 48px; border-radius: 12px; text-align: center; }
+    .loading-spinner {
+      width: 36px; height: 36px; margin: 0 auto 12px;
+      border: 4px solid #f0f0f0; border-top-color: #FF844F;
+      border-radius: 50%; animation: spin 0.9s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-msg { font-size: 14px; font-weight: 500; color: #333; }
+
+    .role-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(17,24,39,0.97); z-index: 8500;
+      justify-content: center; align-items: center; flex-direction: column; gap: 14px;
+    }
+    .role-overlay.show { display: flex; }
+    .role-arrow { font-size: 30px; color: #FF844F; animation: bob 0.7s ease infinite alternate; }
+    @keyframes bob { to { transform: translateY(-6px); } }
+    .role-label { font-size: 13px; color: #6b7280; text-align: center; }
+    .role-name { font-size: 28px; font-weight: 600; color: white; text-align: center; }
+    .role-role { font-size: 14px; color: #A083F2; text-align: center; margin-top: 2px; }
+
+    /* ===== LOGIN ===== */
+    #login-section {
+      display: flex; justify-content: center; align-items: center;
+      min-height: calc(100vh - 54px); padding: 40px 20px;
+    }
+    .login-container {
+      background: white; border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+      width: 100%; max-width: 420px; overflow: hidden;
+    }
+    .login-header {
+      background: linear-gradient(135deg, #FF844F 0%, #A083F2 100%);
+      padding: 40px 30px; text-align: center; color: white;
+    }
+    .login-header h1 { font-size: 24px; font-weight: 600; margin-bottom: 8px; }
+    .login-header p { font-size: 14px; font-weight: 300; opacity: 0.9; }
+    .login-body { padding: 36px 30px; }
+    .lg-group { margin-bottom: 22px; }
+    .lg-group label { display: block; font-size: 13px; font-weight: 500; color: #2d2d2d; margin-bottom: 7px; }
+    .lg-group input {
+      width: 100%; padding: 11px 14px; font-size: 14px;
+      font-family: 'Poppins', sans-serif; border: 2px solid #e0e0e0;
+      border-radius: 8px; transition: border-color 0.3s; outline: none;
+    }
+    .lg-group input.focused { border-color: #FF844F; }
+    .login-btn {
+      width: 100%; padding: 13px; font-size: 15px; font-weight: 600;
+      font-family: 'Poppins', sans-serif; color: white; background: #ccc;
+      border: none; border-radius: 8px; cursor: default;
+      transition: all 0.3s; margin-top: 8px; position: relative; overflow: hidden;
+    }
+    .login-btn.active { background: #555; cursor: pointer; }
+    .login-footer { text-align: center; padding: 18px; font-size: 12px; color: #999; }
+
+    .ripple {
+      position: absolute; border-radius: 50%;
+      background: rgba(255,255,255,0.4); transform: scale(0);
+      animation: ripple-anim 0.55s linear; pointer-events: none;
+    }
+    @keyframes ripple-anim { to { transform: scale(4); opacity: 0; } }
+
+    /* ===== DASHBOARD ===== */
+    #dashboard-section { display: none; }
+
+    .sys-header {
+      background: linear-gradient(135deg, #FF844F 0%, #A083F2 100%);
+      color: white; padding: 17px 28px;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .sys-header-title { font-size: 19px; font-weight: 600; }
+    .sys-header-right { display: flex; align-items: center; gap: 14px; font-size: 13px; }
+    .sys-hdr-btn {
+      background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3);
+      color: white; padding: 7px 14px; border-radius: 6px; cursor: pointer;
+      font-family: 'Poppins', sans-serif; font-size: 13px;
+    }
+
+    .sys-tabs {
+      background: white; padding: 0 28px;
+      display: flex; justify-content: space-between; align-items: center;
+      border-bottom: 1px solid #e8e8e8;
+    }
+    .sys-tabs-left { display: flex; gap: 26px; }
+    .sys-tab {
+      padding: 15px 0; font-size: 14px; font-weight: 500;
+      color: #666; cursor: pointer; border-bottom: 3px solid transparent;
+      transition: all 0.3s; position: relative; white-space: nowrap;
+    }
+    .sys-tab:hover { color: #FF844F; }
+    .sys-tab.active { color: #FF844F; border-bottom-color: #FF844F; }
+    .tab-badge {
+      position: absolute; top: 7px; right: -15px;
+      background: #FF844F; color: white; font-size: 11px; font-weight: 600;
+      min-width: 18px; height: 18px; border-radius: 9px;
+      display: inline-flex; align-items: center; justify-content: center; padding: 0 4px;
+    }
+    .sys-tabs-right { font-size: 12px; color: #888; }
+    .sys-tabs-right strong { color: #333; }
+
+    .sys-content { padding: 26px 28px; max-width: 1100px; margin: 0 auto; }
+    .sys-panel { display: none; }
+    .sys-panel.active { display: block; }
+    .section-title { font-size: 17px; font-weight: 600; color: #2d2d2d; margin-bottom: 16px; }
+
+    /* Balance */
+    .balance-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; margin-bottom: 26px; }
+    .balance-card { background: white; border: 2px solid #e8e8e8; border-radius: 12px; padding: 18px; transition: border-color 0.4s, box-shadow 0.4s; }
+    .balance-card.hl { border-color: #FF844F; box-shadow: 0 0 0 4px rgba(255,132,79,0.12); }
+    .bc-label { font-size: 12px; color: #666; padding-bottom: 10px; margin-bottom: 10px; border-bottom: 1px solid #f0f0f0; }
+    .bc-num { text-align: center; margin: 12px 0; }
+    .bc-val { font-size: 44px; font-weight: 600; color: #FF844F; transition: all 0.6s; }
+    .bc-unit { font-size: 14px; color: #999; }
+    .bc-used { font-size: 12px; color: #888; }
+    .bc-date { font-size: 11px; color: #aaa; margin-top: 5px; }
+
+    /* Records */
+    .records-list { display: flex; flex-direction: column; gap: 10px; }
+    .rec-item { background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); overflow: hidden; }
+    .rec-header {
+      padding: 13px 15px; cursor: pointer;
+      display: flex; justify-content: space-between; align-items: center;
+      transition: background 0.2s;
+    }
+    .rec-header:hover { background: #fafafa; }
+    .rec-toggle { font-size: 12px; color: #888; margin-right: 10px; }
+    .rec-summary { flex: 1; font-size: 13px; color: #2d2d2d; }
+    .rec-badges { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+    .badge { padding: 3px 10px; border-radius: 10px; font-size: 11px; font-weight: 500; white-space: nowrap; }
+    .badge-pending { background: #ccc; color: white; }
+    .badge-approved { background: #A083F2; color: white; }
+    .rec-body { padding: 0 15px 13px 15px; display: none; font-size: 13px; color: #666; line-height: 1.85; border-top: 1px solid #f5f5f5; }
+    .rec-body.open { display: block; }
+    .rec-body > div { margin-bottom: 2px; }
+
+    @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+    .rec-new { animation: slideDown 0.4s ease; }
+
+    /* Form */
+    .form-row { margin-bottom: 18px; }
+    .form-label { display: block; font-size: 13px; font-weight: 500; color: #2d2d2d; margin-bottom: 7px; }
+    .form-ctrl {
+      width: 100%; padding: 10px 12px;
+      font-family: 'Poppins', sans-serif; font-size: 13px;
+      border: 2px solid #e0e0e0; border-radius: 8px;
+      transition: border-color 0.3s; outline: none; background: white;
+    }
+    .form-ctrl.focused { border-color: #FF844F; }
+    .form-ctrl.set { border-color: #A083F2; }
+    textarea.form-ctrl { resize: vertical; min-height: 70px; }
+
+    .mode-sel { display: flex; gap: 10px; }
+    .mode-opt {
+      flex: 1; padding: 11px; border: 2px solid #e0e0e0; border-radius: 8px;
+      text-align: center; cursor: pointer; font-size: 13px; font-weight: 500;
+      color: #666; transition: all 0.3s;
+    }
+    .mode-opt.active { border-color: #FF844F; background: #FF844F; color: white; }
+
+    .dt-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 8px; }
+    .dt-group { display: flex; flex-direction: column; gap: 5px; }
+    .dt-label { font-size: 12px; font-weight: 500; color: #2d2d2d; }
+    .dt-row { display: flex; gap: 6px; }
+    .form-hint { font-size: 11px; color: #888; margin-top: 7px; }
+
+    .preview-box { background: #f8f8f8; border-radius: 8px; padding: 14px; margin-top: 20px; }
+    .preview-title { font-size: 12px; font-weight: 600; color: #444; margin-bottom: 10px; }
+    .preview-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .pv-item { font-size: 12px; color: #666; line-height: 1.6; }
+    .pv-item strong { color: #2d2d2d; }
+    .pv-full { grid-column: 1/-1; }
+
+    .btn-submit {
+      width: 100%; padding: 13px; background: #FF844F; color: white;
+      border: none; border-radius: 8px; font-family: 'Poppins', sans-serif;
+      font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.3s;
+      margin-top: 20px; position: relative; overflow: hidden;
+    }
+    .btn-submit:hover { background: #e6753f; }
+    .btn-submit.pulse { box-shadow: 0 0 0 6px rgba(255,132,79,0.3); }
+
+    /* Approvals */
+    .appr-item { background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); overflow: hidden; margin-bottom: 10px; }
+    .appr-header { padding: 13px 15px; display: flex; align-items: center; cursor: pointer; transition: background 0.2s; }
+    .appr-header:hover { background: #fafafa; }
+    .appr-body { padding: 14px 15px; border-top: 1px solid #f5f5f5; font-size: 13px; color: #666; line-height: 1.85; display: none; }
+    .appr-body.open { display: block; }
+    .appr-row { margin-bottom: 3px; }
+    .appr-hint { font-size: 12px; color: #888; margin-top: 10px; }
+    .appr-cmt-label { font-size: 12px; font-weight: 500; color: #444; margin: 10px 0 6px; }
+    .appr-actions { display: flex; gap: 10px; margin-top: 12px; }
+    .btn-approve {
+      flex: 1; padding: 11px; background: #FF844F; color: white;
+      border: none; border-radius: 8px; font-family: 'Poppins', sans-serif;
+      font-size: 13px; font-weight: 600; cursor: pointer; transition: background 0.3s;
+      position: relative; overflow: hidden;
+    }
+    .btn-approve:hover { background: #e6753f; }
+    .btn-reject {
+      flex: 1; padding: 11px; background: #e5e7eb; color: #374151;
+      border: none; border-radius: 8px; font-family: 'Poppins', sans-serif;
+      font-size: 13px; font-weight: 600; cursor: pointer;
+    }
+
+    /* Team */
+    .team-search { margin-bottom: 16px; }
+    .team-search input {
+      width: 100%; max-width: 360px; padding: 9px 14px;
+      border: 1px solid #e0e0e0; border-radius: 8px;
+      font-family: 'Poppins', sans-serif; font-size: 13px; outline: none;
+    }
+    .team-table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.07); }
+    .team-table thead { background: linear-gradient(135deg, #FF844F 0%, #A083F2 100%); color: white; }
+    .team-table th { padding: 13px 15px; text-align: left; font-weight: 500; font-size: 13px; }
+    .team-table td { padding: 13px 15px; border-bottom: 1px solid #f5f5f5; font-size: 13px; }
+    .team-table tr:last-child td { border-bottom: none; }
+    .team-table tbody tr:hover td { background: #fafafa; }
+
+    /* Integration */
+    .int-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 20px; }
+    .int-card {
+      background: white; border-radius: 10px; padding: 18px; text-align: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.07); border-top: 3px solid #A083F2;
+      opacity: 0; transform: translateY(12px); transition: all 0.5s ease;
+    }
+    .int-card.show { opacity: 1; transform: translateY(0); }
+    .int-icon { font-size: 26px; margin-bottom: 8px; }
+    .int-title { font-size: 13px; font-weight: 600; color: #2d2d2d; }
+    .int-detail { font-size: 11px; color: #888; margin-top: 5px; line-height: 1.5; }
+
+    .replay-wrap { text-align: center; padding: 30px; display: none; }
+    .replay-wrap.show { display: block; }
+    .btn-replay {
+      padding: 13px 34px; background: transparent; border: 2px solid #FF844F;
+      color: #FF844F; border-radius: 10px; font-family: 'Poppins', sans-serif;
+      font-size: 15px; font-weight: 600; cursor: pointer; transition: all 0.3s;
+    }
+    .btn-replay:hover { background: #FF844F; color: white; }
+
+    @media (max-width: 600px) {
+      .demo-bar { flex-wrap: wrap; padding: 8px 12px; gap: 6px; }
+      .progress-wrap { display: none; }
+      .sys-content { padding: 14px; }
+      .sys-header { padding: 13px 14px; }
+      .sys-tabs { padding: 0 14px; }
+      .sys-tabs-right { display: none; }
+      .dt-grid, .preview-grid, .int-grid { grid-template-columns: 1fr; }
+      .balance-grid { grid-template-columns: 1fr; }
+      .sys-header-right span { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Demo Bar -->
+<div class="demo-bar">
+  <span class="demo-logo">▶ DEMO</span>
+  <span class="demo-narration" id="narration">點擊「開始示範」觀看完整請假流程</span>
+  <div class="progress-wrap"><div class="progress-fill" id="prog"></div></div>
+  <button class="demo-ctrl ctrl-ghost" id="btn-pause" onclick="togglePause()" style="display:none">⏸ 暫停</button>
+  <button class="demo-ctrl ctrl-primary" id="btn-start" onclick="startDemo()">▶ 開始示範</button>
+</div>
+
+<!-- Loading Overlay -->
+<div class="loading-overlay" id="loading-overlay">
+  <div class="loading-box">
+    <div class="loading-spinner"></div>
+    <div class="loading-msg" id="loading-msg">Processing...</div>
+  </div>
+</div>
+
+<!-- Role Transition Overlay -->
+<div class="role-overlay" id="role-overlay">
+  <div class="role-arrow">↓</div>
+  <div>
+    <div class="role-label" id="ro-label">切換視角</div>
+    <div class="role-name" id="ro-name">—</div>
+    <div class="role-role" id="ro-role"></div>
+  </div>
+</div>
+
+<div class="page-body">
+
+<!-- LOGIN -->
+<div id="login-section">
+  <div class="login-container">
+    <div class="login-header">
+      <h1>Leave Management</h1>
+      <p>HR System · Qlo</p>
+    </div>
+    <div class="login-body">
+      <div class="lg-group">
+        <label>Email</label>
+        <input type="email" id="login-email" placeholder="your@email.com" autocomplete="off" readonly>
+      </div>
+      <div class="lg-group">
+        <label>Password</label>
+        <input type="password" id="login-pw" placeholder="Enter your password" readonly>
+      </div>
+      <button class="login-btn" id="login-btn">Login</button>
+    </div>
+    <div class="login-footer">Qlo HR Team</div>
+  </div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="dashboard-section">
+  <div class="sys-header">
+    <div class="sys-header-title">Leave Management System</div>
+    <div class="sys-header-right">
+      <span id="user-display">Amy Chen | amy@qlo.com</span>
+      <button class="sys-hdr-btn">Refresh</button>
+      <button class="sys-hdr-btn">Logout</button>
+    </div>
+  </div>
+  <div class="sys-tabs">
+    <div class="sys-tabs-left">
+      <div class="sys-tab active" id="tab-rec">My Records</div>
+      <div class="sys-tab" id="tab-apply">Apply Leave</div>
+      <div class="sys-tab" id="tab-appr" style="display:none">
+        Pending Approvals
+        <span class="tab-badge" id="appr-badge" style="display:none">1</span>
+      </div>
+      <div class="sys-tab" id="tab-team" style="display:none">Team Members Leave Status</div>
+    </div>
+    <div class="sys-tabs-right" id="onboard-bar"><strong>Onboard:</strong> Jan 15, 2025</div>
+  </div>
+
+  <div class="sys-content">
+    <!-- My Records -->
+    <div class="sys-panel active" id="panel-rec">
+      <h2 class="section-title">Leave Balance</h2>
+      <div class="balance-grid">
+        <div class="balance-card" id="card-float">
+          <div class="bc-label">Floating Leave Remaining</div>
+          <div class="bc-num">
+            <span class="bc-val">16</span><span class="bc-unit"> hours</span>
+          </div>
+          <div class="bc-used">Used: 0</div>
+          <div class="bc-date">Reset Date: Jan 1, 2026</div>
+        </div>
+        <div class="balance-card" id="card-annual">
+          <div class="bc-label">2026 Annual Leave Remaining</div>
+          <div class="bc-num">
+            <span class="bc-val" id="annual-val">80</span><span class="bc-unit"> hours</span>
+          </div>
+          <div class="bc-used" id="annual-used">Used: 8</div>
+          <div class="bc-date">Setting Date: Jan 1, 2026</div>
+        </div>
+      </div>
+
+      <h2 class="section-title">Leave History</h2>
+      <div class="records-list" id="rec-list">
+        <div class="rec-item">
+          <div class="rec-header" onclick="toggleRec(this)">
+            <span class="rec-toggle">►</span>
+            <span class="rec-summary">LV-2026-001 &nbsp;|&nbsp; May 10, 2026 09:00 – 17:00</span>
+            <div class="rec-badges"><span class="badge badge-approved">Supervisor: Approved</span></div>
+          </div>
+          <div class="rec-body">
+            <div><strong>Leave Type:</strong> 2026 Annual Leave</div>
+            <div><strong>Total Hours:</strong> 8 hrs</div>
+            <div><strong>Reason:</strong> Personal matters</div>
+            <div><strong>Substitute:</strong> bob@qlo.com → Approved</div>
+            <div><strong>Supervisor:</strong> carol@qlo.com → Approved</div>
+            <div><strong>Created:</strong> May 8, 2026</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="replay-wrap" id="replay-wrap">
+        <button class="btn-replay" onclick="startDemo()">↺ 重新播放</button>
+      </div>
+    </div>
+
+    <!-- Apply Leave -->
+    <div class="sys-panel" id="panel-apply">
+      <h2 class="section-title">Apply Leave</h2>
+      <div class="form-row">
+        <label class="form-label">Leave Type</label>
+        <select class="form-ctrl" id="f-type">
+          <option value="">-- Select Leave Type --</option>
+          <option value="Floating Leave">Floating Leave (Left: 16 hours)</option>
+          <option value="2026 Annual Leave">2026 Annual Leave (Left: 80 hours)</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label class="form-label">Substitute（職務代理人）</label>
+        <select class="form-ctrl" id="f-sub">
+          <option value="none">無（No substitute needed）</option>
+          <option value="bob@qlo.com">Bob Lin (bob@qlo.com)</option>
+          <option value="carol@qlo.com">Carol Wang (carol@qlo.com)</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label class="form-label">Leave Mode</label>
+        <div class="mode-sel">
+          <div class="mode-opt" id="mode-fd">Full Day（整天）</div>
+          <div class="mode-opt active" id="mode-hr">Hours（小時）</div>
+        </div>
+      </div>
+      <div class="form-row">
+        <label class="form-label">Time Period</label>
+        <div class="dt-grid">
+          <div class="dt-group">
+            <span class="dt-label">Start Date</span>
+            <input type="date" class="form-ctrl" id="f-date">
+          </div>
+          <div class="dt-group">
+            <span class="dt-label">Start Time (24h)</span>
+            <div class="dt-row">
+              <select class="form-ctrl" id="f-hour" style="flex:1"><option>09</option><option>10</option></select>
+              <select class="form-ctrl" id="f-min" style="flex:1"><option>00</option><option>30</option></select>
+            </div>
+          </div>
+          <div class="dt-group">
+            <span class="dt-label">Hours (min 0.5)</span>
+            <input type="number" class="form-ctrl" id="f-hrs" min="0.5" step="0.5" placeholder="e.g. 4">
+          </div>
+        </div>
+        <div class="form-hint">📅 Timed event &nbsp;·&nbsp; ⏱️ Weekends auto-excluded</div>
+      </div>
+      <div class="form-row">
+        <label class="form-label">Reason</label>
+        <textarea class="form-ctrl" id="f-reason" placeholder="Enter reason..."></textarea>
+      </div>
+      <div class="preview-box">
+        <div class="preview-title">Preview</div>
+        <div class="preview-grid">
+          <div class="pv-item"><strong>Leave Type:</strong> <span id="pv-type">--</span></div>
+          <div class="pv-item"><strong>Substitute:</strong> <span id="pv-sub">--</span></div>
+          <div class="pv-item pv-full"><strong>Calendar Event:</strong> <span id="pv-cal">--</span></div>
+          <div class="pv-item pv-full"><strong>Total Hours:</strong> <span id="pv-hrs">0</span> hrs</div>
+          <div class="pv-item pv-full"><strong>Reason:</strong> <span id="pv-reason">--</span></div>
+        </div>
+      </div>
+      <button class="btn-submit" id="btn-submit">Submit Leave Request</button>
+    </div>
+
+    <!-- Approvals -->
+    <div class="sys-panel" id="panel-appr">
+      <h2 class="section-title">Pending Approvals</h2>
+      <div id="appr-list"></div>
+    </div>
+
+    <!-- Team -->
+    <div class="sys-panel" id="panel-team">
+      <h2 class="section-title">Team Members Leave Status</h2>
+      <div class="team-search"><input type="text" placeholder="Search by name..."></div>
+      <table class="team-table">
+        <thead><tr><th>Name</th><th>Leave Balance</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Amy Chen</strong></td><td>Floating Leave: 16 &nbsp;|&nbsp; 2026 Annual Leave: 80</td></tr>
+          <tr><td><strong>Bob Lin</strong></td><td>Floating Leave: 8 &nbsp;|&nbsp; 2026 Annual Leave: 72</td></tr>
+          <tr><td><strong>David Wu</strong></td><td>Floating Leave: 16 &nbsp;|&nbsp; 2026 Annual Leave: 88</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+</div>
+
+<script>
+// ===========================
+// STATE
+// ===========================
+let timers = [];
+let paused = false;
+let pauseStart = 0;
+let totalPaused = 0;
+const TOTAL_MS = 58000;
+
+// ===========================
+// DEMO ENGINE
+// ===========================
+function at(ms, fn) {
+  timers.push(setTimeout(() => { if (!paused) fn(); }, ms));
+}
+
+function startDemo() {
+  timers.forEach(clearTimeout);
+  timers = [];
+  paused = false;
+  totalPaused = 0;
+  resetUI();
+
+  document.getElementById('btn-start').style.display = 'none';
+  document.getElementById('btn-pause').style.display = 'block';
+
+  // Progress bar
+  const prog = document.getElementById('prog');
+  prog.style.transition = 'none';
+  prog.style.width = '0%';
+  setTimeout(() => {
+    prog.style.transition = `width ${TOTAL_MS / 1000}s linear`;
+    prog.style.width = '100%';
+  }, 60);
+
+  runSequence();
+}
+
+function togglePause() {
+  paused = !paused;
+  document.getElementById('btn-pause').textContent = paused ? '▶ 繼續' : '⏸ 暫停';
+}
+
+// ===========================
+// SEQUENCE (~58s)
+// ===========================
+function runSequence() {
+  narrate('員工 <strong>Amy Chen</strong> 開啟請假系統，準備登入');
+  show('login-section');
+
+  // Type email
+  at(700,  () => focus('login-email'));
+  at(800,  () => typeText('login-email', 'amy@qlo.com', 75));
+  at(2200, () => { blur('login-email'); focus('login-pw'); });
+  at(2300, () => typePw('login-pw', '1234', 110));
+
+  // Activate + click login
+  at(3100, () => document.getElementById('login-btn').classList.add('active'));
+  at(3600, () => {
+    blur('login-pw');
+    ripple('login-btn');
+    showLoading('登入中...');
+  });
+
+  // Dashboard
+  at(5100, () => {
+    hideLoading();
+    hide('login-section');
+    show('dashboard-section');
+    setUser('Amy Chen', 'amy@qlo.com');
+    employeeView(false);
+    switchPanel('rec');
+    narrate('✅ 登入成功！<strong>My Records</strong> — 假期餘額與申請記錄');
+  });
+
+  at(6200, () => hl('card-float', 'card-annual'));
+  at(8000, () => unhl('card-float', 'card-annual'));
+  at(8200, () => narrate('點擊歷史記錄展開查看詳情'));
+  at(9000, () => {
+    const h = document.querySelector('.rec-header');
+    if (h) { flash(h); toggleRec(h); }
+  });
+
+  // Apply Leave
+  at(11500, () => {
+    narrate('前往 <strong>Apply Leave</strong> 填寫請假申請');
+    flash(document.getElementById('tab-apply'));
+  });
+  at(12200, () => switchPanel('apply'));
+
+  at(13200, () => {
+    narrate('選擇假別：<strong>2026 Annual Leave</strong>');
+    setVal('f-type', '2026 Annual Leave');
+    document.getElementById('pv-type').textContent = '2026 Annual Leave';
+  });
+  at(14800, () => {
+    narrate('指定職務代理人：<strong>Bob Lin</strong>');
+    setVal('f-sub', 'bob@qlo.com');
+    document.getElementById('pv-sub').textContent = 'bob@qlo.com';
+  });
+  at(16300, () => {
+    narrate('設定時間：<strong>2026-07-01，上午 09:00，請假 4 小時</strong>');
+    document.getElementById('f-date').value = '2026-07-01';
+    flash(document.getElementById('f-date'));
+    document.getElementById('f-hour').value = '09';
+  });
+  at(17800, () => {
+    focus('f-hrs');
+    typeText('f-hrs', '4', 160);
+  });
+  at(18800, () => {
+    blur('f-hrs');
+    focus('f-reason');
+    narrate('填寫請假原因');
+  });
+  at(19200, () => typeText('f-reason', 'Family appointment', 65));
+  at(20700, () => {
+    blur('f-reason');
+    document.getElementById('pv-cal').textContent = '2026-07-01 09:00 – 13:00 (Timed Event)';
+    document.getElementById('pv-hrs').textContent = '4';
+    document.getElementById('pv-reason').textContent = 'Family appointment';
+    narrate('Preview 即時更新，確認內容無誤，送出申請');
+  });
+
+  at(22500, () => {
+    document.getElementById('btn-submit').classList.add('pulse');
+  });
+  at(23200, () => {
+    document.getElementById('btn-submit').classList.remove('pulse');
+    ripple('btn-submit');
+    showLoading('正在送出請假申請...');
+  });
+  at(25300, () => {
+    hideLoading();
+    switchPanel('rec');
+    addPendingRecord();
+    narrate('✅ 申請送出！<strong>Email 已自動通知代理人 Bob Lin</strong> 進行審核');
+  });
+
+  // Bob (Substitute)
+  at(28500, () => showRole('切換視角', 'Bob Lin', '職務代理人（Substitute）'));
+  at(31000, () => {
+    hideRole();
+    setUser('Bob Lin', 'bob@qlo.com');
+    employeeView(true);
+    switchPanel('appr');
+    renderAppr('substitute');
+    narrate('<strong>Bob Lin</strong> 收到 Email，進入系統查看待審核的請假申請');
+  });
+  at(32800, () => {
+    const h = document.querySelector('.appr-header');
+    if (h) { flash(h); expandAppr(h); }
+  });
+  at(35000, () => narrate('資訊確認無誤，代理人核准，轉交主管審核'));
+  at(36500, () => {
+    const b = document.querySelector('.btn-approve');
+    if (b) { ripple2(b); }
+    showLoading('Bob Lin 核准審核...');
+  });
+
+  // Carol (Manager)
+  at(38500, () => { hideLoading(); showRole('切換視角', 'Carol Wang', '部門主管（Manager）'); });
+  at(41000, () => {
+    hideRole();
+    setUser('Carol Wang', 'carol@qlo.com');
+    managerView();
+    switchPanel('appr');
+    renderAppr('manager');
+    narrate('<strong>Carol Wang（主管）</strong> 收到通知，進行最終審核');
+  });
+  at(42800, () => {
+    const h = document.querySelector('.appr-header');
+    if (h) { flash(h); expandAppr(h); }
+  });
+  at(45000, () => narrate('代理人已核准，主管確認後核准申請'));
+  at(46500, () => {
+    const b = document.querySelector('.btn-approve');
+    if (b) ripple2(b);
+    showLoading('Carol Wang 核准申請...');
+  });
+
+  // Final: back to Amy
+  at(48500, () => { hideLoading(); showRole('返回視角', 'Amy Chen', '申請人（Employee）'); });
+  at(51000, () => {
+    hideRole();
+    setUser('Amy Chen', 'amy@qlo.com');
+    employeeView(false);
+    switchPanel('rec');
+    showApproved();
+    narrate('🎉 <strong>主管核准完成！</strong>假期餘額即時扣除：80 → 76 小時');
+  });
+  at(52500, () => {
+    document.getElementById('annual-val').textContent = '76';
+    document.getElementById('annual-used').textContent = 'Used: 12';
+    hl('card-annual');
+    setTimeout(() => unhl('card-annual'), 1500);
+  });
+  at(54000, () => {
+    narrate('系統自動完成整合：<strong>Google Calendar</strong>、<strong>Slack</strong>、<strong>Email</strong>');
+    showIntCards();
+  });
+  at(57500, () => {
+    narrate('✅ 示範完成！完整流程：申請 → 代理人審核 → 主管核准 → 自動整合');
+    document.getElementById('replay-wrap').classList.add('show');
+    document.getElementById('btn-pause').style.display = 'none';
+    document.getElementById('btn-start').textContent = '↺ 重播';
+    document.getElementById('btn-start').style.display = 'block';
+  });
+}
+
+// ===========================
+// ANIMATION HELPERS
+// ===========================
+function narrate(html) {
+  const el = document.getElementById('narration');
+  el.style.opacity = '0';
+  setTimeout(() => { el.innerHTML = html; el.style.opacity = '1'; }, 200);
+}
+
+function typeText(id, text, spd) {
+  const el = document.getElementById(id);
+  el.value = '';
+  let i = 0;
+  const iv = setInterval(() => {
+    if (paused) return;
+    if (i < text.length) el.value += text[i++];
+    else clearInterval(iv);
+  }, spd);
+}
+
+function typePw(id, text, spd) { typeText(id, text, spd); }
+
+function focus(id) {
+  const el = document.getElementById(id);
+  if (el) el.classList.add('focused');
+}
+function blur(id) {
+  const el = document.getElementById(id);
+  if (el) el.classList.remove('focused');
+}
+function setVal(id, val) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.value = val;
+  el.classList.add('set');
+  setTimeout(() => el.classList.remove('set'), 900);
+}
+function flash(el) {
+  if (!el) return;
+  el.style.opacity = '0.55';
+  setTimeout(() => el.style.opacity = '', 320);
+}
+function hl(...ids) { ids.forEach(id => document.getElementById(id)?.classList.add('hl')); }
+function unhl(...ids) { ids.forEach(id => document.getElementById(id)?.classList.remove('hl')); }
+
+function ripple(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const r = document.createElement('div');
+  r.className = 'ripple';
+  const rc = el.getBoundingClientRect();
+  const sz = Math.max(rc.width, rc.height);
+  r.style.cssText = `width:${sz}px;height:${sz}px;left:${rc.width/2-sz/2}px;top:${rc.height/2-sz/2}px;`;
+  el.appendChild(r);
+  setTimeout(() => r.remove(), 600);
+}
+function ripple2(el) {
+  if (!el) return;
+  el.style.opacity = '0.6';
+  setTimeout(() => el.style.opacity = '', 350);
+}
+
+function showLoading(msg) {
+  document.getElementById('loading-msg').textContent = msg;
+  document.getElementById('loading-overlay').classList.add('show');
+}
+function hideLoading() { document.getElementById('loading-overlay').classList.remove('show'); }
+
+function showRole(label, name, role) {
+  document.getElementById('ro-label').textContent = label;
+  document.getElementById('ro-name').textContent = name;
+  document.getElementById('ro-role').textContent = role;
+  document.getElementById('role-overlay').classList.add('show');
+}
+function hideRole() { document.getElementById('role-overlay').classList.remove('show'); }
+
+// ===========================
+// UI STATE
+// ===========================
+function show(id) { document.getElementById(id).style.display = 'flex'; }
+function hide(id) { document.getElementById(id).style.display = 'none'; }
+
+function setUser(name, email) {
+  document.getElementById('user-display').textContent = `${name} | ${email}`;
+}
+
+function employeeView(hasPending) {
+  document.getElementById('tab-appr').style.display = hasPending ? 'block' : 'none';
+  document.getElementById('appr-badge').style.display = hasPending ? 'inline-flex' : 'none';
+  document.getElementById('tab-team').style.display = 'none';
+  document.getElementById('onboard-bar').style.display = 'block';
+  document.getElementById('tab-rec').style.display = 'block';
+}
+
+function managerView() {
+  document.getElementById('tab-appr').style.display = 'block';
+  document.getElementById('appr-badge').style.display = 'inline-flex';
+  document.getElementById('appr-badge').textContent = '1';
+  document.getElementById('tab-team').style.display = 'block';
+  document.getElementById('onboard-bar').style.display = 'none';
+}
+
+function switchPanel(name) {
+  document.querySelectorAll('.sys-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.sys-panel').forEach(p => p.classList.remove('active'));
+  const map = {
+    rec: ['tab-rec', 'panel-rec'],
+    apply: ['tab-apply', 'panel-apply'],
+    appr: ['tab-appr', 'panel-appr'],
+    team: ['tab-team', 'panel-team']
+  };
+  const [tid, pid] = map[name] || [];
+  document.getElementById(tid)?.classList.add('active');
+  document.getElementById(pid)?.classList.add('active');
+}
+
+function toggleRec(header) {
+  const body = header.nextElementSibling;
+  const t = header.querySelector('.rec-toggle');
+  const open = body.classList.contains('open');
+  body.classList.toggle('open', !open);
+  t.textContent = open ? '►' : '▼';
+}
+
+function addPendingRecord() {
+  const list = document.getElementById('rec-list');
+  const div = document.createElement('div');
+  div.className = 'rec-item rec-new';
+  div.innerHTML = `
+    <div class="rec-header" onclick="toggleRec(this)">
+      <span class="rec-toggle">▼</span>
+      <span class="rec-summary">LV-2026-005 &nbsp;|&nbsp; Jul 1, 2026 09:00 – 13:00</span>
+      <div class="rec-badges">
+        <span class="badge badge-pending">Substitute: Pending</span>
+        <span class="badge badge-pending">Supervisor: Pending</span>
+      </div>
+    </div>
+    <div class="rec-body open">
+      <div><strong>Leave Type:</strong> 2026 Annual Leave</div>
+      <div><strong>Total Hours:</strong> 4 hrs</div>
+      <div><strong>Reason:</strong> Family appointment</div>
+      <div><strong>Substitute:</strong> bob@qlo.com (Pending)</div>
+      <div><strong>Supervisor:</strong> carol@qlo.com (Pending)</div>
+      <div><strong>Created:</strong> Jun 22, 2026</div>
+    </div>`;
+  list.insertBefore(div, list.firstChild);
+}
+
+function showApproved() {
+  document.getElementById('rec-list').innerHTML = `
+    <div class="rec-item rec-new">
+      <div class="rec-header" onclick="toggleRec(this)">
+        <span class="rec-toggle">▼</span>
+        <span class="rec-summary">LV-2026-005 &nbsp;|&nbsp; Jul 1, 2026 09:00 – 13:00</span>
+        <div class="rec-badges">
+          <span class="badge badge-approved">Substitute: Approved</span>
+          <span class="badge badge-approved">Supervisor: Approved</span>
+        </div>
+      </div>
+      <div class="rec-body open">
+        <div><strong>Leave Type:</strong> 2026 Annual Leave</div>
+        <div><strong>Total Hours:</strong> 4 hrs</div>
+        <div><strong>Reason:</strong> Family appointment</div>
+        <div><strong>Substitute:</strong> bob@qlo.com ✓ Approved — Jun 22, 2026</div>
+        <div><strong>Supervisor:</strong> carol@qlo.com ✓ Approved — Jun 22, 2026</div>
+        <div><strong>Created:</strong> Jun 22, 2026</div>
+      </div>
+    </div>
+    <div class="rec-item">
+      <div class="rec-header" onclick="toggleRec(this)">
+        <span class="rec-toggle">►</span>
+        <span class="rec-summary">LV-2026-001 &nbsp;|&nbsp; May 10, 2026 09:00 – 17:00</span>
+        <div class="rec-badges"><span class="badge badge-approved">Supervisor: Approved</span></div>
+      </div>
+      <div class="rec-body">
+        <div><strong>Leave Type:</strong> 2026 Annual Leave</div>
+        <div><strong>Total Hours:</strong> 8 hrs</div>
+        <div><strong>Reason:</strong> Personal matters</div>
+      </div>
+    </div>`;
+}
+
+function renderAppr(type) {
+  const label = type === 'substitute' ? '[Substitute Approval]' : '[Manager Approval]';
+  const hint = type === 'substitute'
+    ? '代理人確認可以接手工作後，核准並轉發給主管進行最終審核。'
+    : '代理人已核准，請主管進行最終審核。核准後系統自動扣假並建立 Calendar 事件。';
+  document.getElementById('appr-list').innerHTML = `
+    <div class="appr-item">
+      <div class="appr-header" onclick="expandAppr(this)">
+        <span class="rec-toggle" style="margin-right:10px">►</span>
+        <span class="rec-summary"><strong>${label}</strong> &nbsp; LV-2026-005 | amy@qlo.com | 2026 Annual Leave | 4 hrs</span>
+      </div>
+      <div class="appr-body">
+        <div class="appr-row"><strong>Employee:</strong> Amy Chen (amy@qlo.com)</div>
+        <div class="appr-row"><strong>Leave Type:</strong> 2026 Annual Leave</div>
+        <div class="appr-row"><strong>Date:</strong> Jul 1, 2026 09:00 – 13:00</div>
+        <div class="appr-row"><strong>Total Hours:</strong> 4 hrs</div>
+        <div class="appr-row"><strong>Reason:</strong> Family appointment</div>
+        <div class="appr-row"><strong>Applied:</strong> Jun 22, 2026</div>
+        <p class="appr-hint">${hint}</p>
+        <div class="appr-cmt-label">Comments (optional):</div>
+        <textarea class="form-ctrl" placeholder="Add comments..." style="min-height:50px;"></textarea>
+        <div class="appr-actions">
+          <button class="btn-approve">Approve</button>
+          <button class="btn-reject">Reject</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function expandAppr(header) {
+  const body = header.nextElementSibling;
+  const t = header.querySelector('.rec-toggle');
+  const open = body.classList.contains('open');
+  body.classList.toggle('open', !open);
+  t.textContent = open ? '►' : '▼';
+}
+
+function showIntCards() {
+  const panel = document.getElementById('panel-rec');
+  if (document.getElementById('int-wrap')) return;
+  const wrap = document.createElement('div');
+  wrap.id = 'int-wrap';
+  wrap.innerHTML = `
+    <h2 class="section-title" style="margin-top:28px">系統自動化整合</h2>
+    <div class="int-grid">
+      <div class="int-card" id="ic1">
+        <div class="int-icon">📅</div>
+        <div class="int-title">Google Calendar</div>
+        <div class="int-detail">自動建立公司共用行事曆假期事件<br>「[休休] Amy Chen_Annual Leave」</div>
+      </div>
+      <div class="int-card" id="ic2">
+        <div class="int-icon">💬</div>
+        <div class="int-title">Slack 通知</div>
+        <div class="int-detail">核准後自動推送至指定 Slack 頻道<br>即時通知相關人員</div>
+      </div>
+      <div class="int-card" id="ic3">
+        <div class="int-icon">📧</div>
+        <div class="int-title">Email 確認</div>
+        <div class="int-detail">自動發送核准通知給申請人<br>CC 代理人與主管</div>
+      </div>
+    </div>`;
+  panel.insertBefore(wrap, document.getElementById('replay-wrap'));
+  setTimeout(() => document.getElementById('ic1').classList.add('show'), 200);
+  setTimeout(() => document.getElementById('ic2').classList.add('show'), 600);
+  setTimeout(() => document.getElementById('ic3').classList.add('show'), 1000);
+}
+
+// ===========================
+// RESET
+// ===========================
+function resetUI() {
+  // Login
+  document.getElementById('login-email').value = '';
+  document.getElementById('login-pw').value = '';
+  ['login-email','login-pw'].forEach(id => document.getElementById(id).classList.remove('focused'));
+  document.getElementById('login-btn').classList.remove('active');
+  document.getElementById('login-section').style.display = 'flex';
+  document.getElementById('dashboard-section').style.display = 'none';
+
+  // Form
+  ['f-type','f-sub','f-date','f-hrs','f-reason'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = id === 'f-sub' ? 'none' : '';
+  });
+  document.getElementById('pv-type').textContent = '--';
+  document.getElementById('pv-sub').textContent = '--';
+  document.getElementById('pv-cal').textContent = '--';
+  document.getElementById('pv-hrs').textContent = '0';
+  document.getElementById('pv-reason').textContent = '--';
+
+  // Records
+  document.getElementById('rec-list').innerHTML = `
+    <div class="rec-item">
+      <div class="rec-header" onclick="toggleRec(this)">
+        <span class="rec-toggle">►</span>
+        <span class="rec-summary">LV-2026-001 &nbsp;|&nbsp; May 10, 2026 09:00 – 17:00</span>
+        <div class="rec-badges"><span class="badge badge-approved">Supervisor: Approved</span></div>
+      </div>
+      <div class="rec-body">
+        <div><strong>Leave Type:</strong> 2026 Annual Leave</div>
+        <div><strong>Total Hours:</strong> 8 hrs</div>
+        <div><strong>Reason:</strong> Personal matters</div>
+        <div><strong>Substitute:</strong> bob@qlo.com → Approved</div>
+        <div><strong>Supervisor:</strong> carol@qlo.com → Approved</div>
+        <div><strong>Created:</strong> May 8, 2026</div>
+      </div>
+    </div>`;
+
+  document.getElementById('annual-val').textContent = '80';
+  document.getElementById('annual-used').textContent = 'Used: 8';
+
+  const int = document.getElementById('int-wrap');
+  if (int) int.remove();
+  document.getElementById('replay-wrap').classList.remove('show');
+
+  // Overlays
+  hideLoading();
+  hideRole();
+  unhl('card-float','card-annual');
+
+  // Progress
+  const prog = document.getElementById('prog');
+  prog.style.transition = 'none';
+  prog.style.width = '0%';
+}
+</script>
+</body>
+</html>
